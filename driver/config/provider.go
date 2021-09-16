@@ -51,6 +51,7 @@ const (
 	KeyLoginURL                                  = "urls.login"
 	KeyLogoutURL                                 = "urls.logout"
 	KeyConsentURL                                = "urls.consent"
+	KeyCheckPasswordURL                          = "urls.check_password"
 	KeyErrorURL                                  = "urls.error"
 	KeyPublicURL                                 = "urls.self.public"
 	KeyIssuerURL                                 = "urls.self.issuer"
@@ -344,6 +345,10 @@ func (p *Provider) LogoutURL() *url.URL {
 
 func (p *Provider) ConsentURL() *url.URL {
 	return urlRoot(p.p.URIF(KeyConsentURL, p.publicFallbackURL("oauth2/fallbacks/consent")))
+}
+
+func (p *Provider) CheckPasswordURL() *url.URL {
+	return urlRoot(p.p.URIF(KeyCheckPasswordURL, p.publicFallbackURL("oauth2/fallbacks/check_password")))
 }
 
 func (p *Provider) ErrorURL() *url.URL {

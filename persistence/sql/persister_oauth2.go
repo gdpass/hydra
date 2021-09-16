@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -443,4 +445,23 @@ func (p *Persister) DeleteAccessTokens(ctx context.Context, clientID string) err
 		p.Connection(ctx).
 			RawQuery(fmt.Sprintf("DELETE FROM %s WHERE client_id=?", OAuth2RequestSQL{Table: sqlTableAccess}.TableName()), clientID).
 			Exec())
+}
+
+func (p *Persister) Authenticate(ctx context.Context, name string, secret string) error {
+	checkPasswordURL := p.config.CheckPasswordURL().String()
+	resp, err := http.PostForm(checkPasswordURL, url.Values{"username": {name}, "password": {secret}})
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "true" {
+		return fosite.ErrNotFound
+	}
+	return nil
 }

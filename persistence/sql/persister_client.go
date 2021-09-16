@@ -44,7 +44,7 @@ func (p *Persister) UpdateClient(ctx context.Context, cl *client.Client) error {
 	})
 }
 
-func (p *Persister) Authenticate(ctx context.Context, id string, secret []byte) (*client.Client, error) {
+func (p *Persister) AuthenticateClient(ctx context.Context, id string, secret []byte) (*client.Client, error) {
 	c, err := p.GetConcreteClient(ctx, id)
 	if err != nil {
 		return nil, errorsx.WithStack(err)

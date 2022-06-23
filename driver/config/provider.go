@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,6 +25,12 @@ import (
 
 const (
 	KeyRoot                                      = ""
+	HsmEnabled                                   = "hsm.enabled"
+	HsmLibraryPath                               = "hsm.library"
+	HsmPin                                       = "hsm.pin"
+	HsmSlotNumber                                = "hsm.slot"
+	HsmKeySetPrefix                              = "hsm.key_set_prefix"
+	HsmTokenLabel                                = "hsm.token_label" // #nosec G101
 	KeyWellKnownKeys                             = "webfinger.jwks.broadcast_keys"
 	KeyOAuth2ClientRegistrationURL               = "webfinger.oidc_discovery.client_registration_url"
 	KeyOAuth2TokenURL                            = "webfinger.oidc_discovery.token_url" // #nosec G101
@@ -57,15 +64,19 @@ const (
 	KeyIssuerURL                                 = "urls.self.issuer"
 	KeyAccessTokenStrategy                       = "strategies.access_token"
 	KeySubjectIdentifierAlgorithmSalt            = "oidc.subject_identifiers.pairwise.salt"
+	KeyPublicAllowDynamicRegistration            = "oidc.dynamic_client_registration.enabled"
 	KeyPKCEEnforced                              = "oauth2.pkce.enforced"
 	KeyPKCEEnforcedForPublicClients              = "oauth2.pkce.enforced_for_public_clients"
 	KeyLogLevel                                  = "log.level"
 	KeyCGroupsV1AutoMaxProcsEnabled              = "cgroups.v1.auto_max_procs_enabled"
-	KeyGrantAllClientCredentialsScopesPerDefault = "oauth2.client_credentials.default_grant_allowed_scope"
+	KeyGrantAllClientCredentialsScopesPerDefault = "oauth2.client_credentials.default_grant_allowed_scope" // #nosec G101
 	KeyExposeOAuth2Debug                         = "oauth2.expose_internal_errors"
 	KeyOAuth2LegacyErrors                        = "oauth2.include_legacy_error_fields"
 	KeyExcludeNotBeforeClaim                     = "oauth2.exclude_not_before_claim"
 	KeyAllowedTopLevelClaims                     = "oauth2.allowed_top_level_claims"
+	KeyOAuth2GrantJWTIDOptional                  = "oauth2.grant.jwt.jti_optional"
+	KeyOAuth2GrantJWTIssuedDateOptional          = "oauth2.grant.jwt.iat_optional"
+	KeyOAuth2GrantJWTMaxDuration                 = "oauth2.grant.jwt.max_ttl"
 	KeyRefreshTokenHookURL                       = "oauth2.refresh_token_hook" // #nosec G101
 )
 
@@ -77,15 +88,15 @@ type Provider struct {
 	p               *configx.Provider
 }
 
-func MustNew(l *logrusx.Logger, opts ...configx.OptionModifier) *Provider {
-	p, err := New(l, opts...)
+func MustNew(ctx context.Context, l *logrusx.Logger, opts ...configx.OptionModifier) *Provider {
+	p, err := New(ctx, l, opts...)
 	if err != nil {
 		l.WithError(err).Fatalf("Unable to load config.")
 	}
 	return p
 }
 
-func New(l *logrusx.Logger, opts ...configx.OptionModifier) (*Provider, error) {
+func New(ctx context.Context, l *logrusx.Logger, opts ...configx.OptionModifier) (*Provider, error) {
 	opts = append([]configx.OptionModifier{
 		configx.WithStderrValidationReporter(),
 		configx.OmitKeysFromTracing("dsn", "secrets.system", "secrets.cookie"),
@@ -93,7 +104,7 @@ func New(l *logrusx.Logger, opts ...configx.OptionModifier) (*Provider, error) {
 		configx.WithLogrusWatcher(l),
 	}, opts...)
 
-	p, err := configx.New(spec.ConfigValidationSchema, opts...)
+	p, err := configx.New(ctx, spec.ConfigValidationSchema, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +234,10 @@ func (p *Provider) CookieSameSiteMode() http.SameSite {
 	}
 }
 
+func (p *Provider) PublicAllowDynamicRegistration() bool {
+	return p.p.Bool(KeyPublicAllowDynamicRegistration)
+}
+
 func (p *Provider) CookieSameSiteLegacyWorkaround() bool {
 	return p.p.Bool(KeyCookieSameSiteLegacyWorkaround)
 }
@@ -252,7 +267,7 @@ func (p *Provider) ScopeStrategy() string {
 }
 
 func (p *Provider) Tracing() *tracing.Config {
-	return p.p.TracingConfig("ORY Hydra")
+	return p.p.TracingConfig("Ory Hydra")
 }
 
 func (p *Provider) GetCookieSecrets() [][]byte {
@@ -437,4 +452,41 @@ func (p *Provider) CGroupsV1AutoMaxProcsEnabled() bool {
 
 func (p *Provider) GrantAllClientCredentialsScopesPerDefault() bool {
 	return p.p.Bool(KeyGrantAllClientCredentialsScopesPerDefault)
+}
+
+func (p *Provider) HsmEnabled() bool {
+	return p.p.Bool(HsmEnabled)
+}
+
+func (p *Provider) HsmLibraryPath() string {
+	return p.p.String(HsmLibraryPath)
+}
+
+func (p *Provider) HsmSlotNumber() *int {
+	n := p.p.Int(HsmSlotNumber)
+	return &n
+}
+
+func (p *Provider) HsmPin() string {
+	return p.p.String(HsmPin)
+}
+
+func (p *Provider) HsmTokenLabel() string {
+	return p.p.String(HsmTokenLabel)
+}
+
+func (p *Provider) HsmKeySetPrefix() string {
+	return p.p.String(HsmKeySetPrefix)
+}
+
+func (p *Provider) GrantTypeJWTBearerIDOptional() bool {
+	return p.p.Bool(KeyOAuth2GrantJWTIDOptional)
+}
+
+func (p *Provider) GrantTypeJWTBearerIssuedDateOptional() bool {
+	return p.p.Bool(KeyOAuth2GrantJWTIssuedDateOptional)
+}
+
+func (p *Provider) GrantTypeJWTBearerMaxDuration() time.Duration {
+	return p.p.DurationF(KeyOAuth2GrantJWTMaxDuration, time.Hour*24*30)
 }

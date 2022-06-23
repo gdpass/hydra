@@ -34,7 +34,7 @@ func NewClientsCreateCmd() *cobra.Command {
 		Long: `This command creates an OAuth 2.0 Client which can be used to perform various OAuth 2.0 Flows like
 the Authorize Code, Implicit, Refresh flow.
 
-ORY Hydra implements the OpenID Connect Dynamic Client registration specification. Most flags are supported by this command
+Ory Hydra implements the OpenID Connect Dynamic Client registration specification. Most flags are supported by this command
 as well.
 
 Example:
@@ -75,6 +75,9 @@ To encrypt auto generated client secret, use "--pgp-key", "--pgp-key-url" or "--
 	cmd.Flags().String("pgp-key", "", "Base64 encoded PGP encryption key for encrypting client secret")
 	cmd.Flags().String("pgp-key-url", "", "PGP encryption key URL for encrypting client secret")
 	cmd.Flags().String("keybase", "", "Keybase username for encrypting client secret")
+
+	// authentication signing algorithm for the Token Endpoint
+	cmd.Flags().String("token-endpoint-auth-signing-alg", "", "Authentication signing algorithm for the Token Endpoint")
 
 	return cmd
 }

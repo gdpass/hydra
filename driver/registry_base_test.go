@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"testing"
 
@@ -27,29 +28,33 @@ func TestRegistryBase_newKeyStrategy_handlesNetworkError(t *testing.T) {
 	l.Logrus().ExitFunc = func(int) {} // Override the exit func to avoid call to os.Exit
 
 	// Create a config and set a valid but unresolvable DSN
-	c := config.MustNew(l, configx.WithConfigFiles("../internal/.hydra.yaml"))
+	c := config.MustNew(context.Background(), l, configx.WithConfigFiles("../internal/.hydra.yaml"))
 	c.MustSet(config.KeyDSN, "postgres://user:password@127.0.0.1:9999/postgres")
+	c.MustSet(config.HsmEnabled, "false")
 
-	registry, err := NewRegistryFromDSN(context.Background(), c, l)
+	registry, err := NewRegistryWithoutInit(c, l)
 	if err != nil {
-		t.Error("failed to create registry: ", err)
+		t.Errorf("Failed to create registry: %s", err)
 		return
 	}
 
-	registryBase := RegistryBase{r: registry, l: l}
+	r := registry.(*RegistrySQL)
+	r.initialPing = failedPing(errors.New("snizzles"))
 
-	strategy := registryBase.newKeyStrategy("key")
+	_ = r.Init(context.Background())
 
-	assert.Equal(t, nil, strategy)
+	registryBase := RegistryBase{r: r, l: l}
+	registryBase.WithConfig(c)
+
 	assert.Equal(t, logrus.FatalLevel, hook.LastEntry().Level)
-	assert.Contains(t, hook.LastEntry().Message, "A network error occurred, see error for specific details.")
+	assert.Contains(t, hook.LastEntry().Message, "snizzles")
 }
 
 func TestRegistryBase_CookieStore_MaxAgeZero(t *testing.T) {
 	// Test ensures that CookieStore MaxAge option is equal to zero after initialization
 
 	r := new(RegistryBase)
-	r.WithConfig(config.MustNew(logrusx.New("", "")))
+	r.WithConfig(config.MustNew(context.Background(), logrusx.New("", "")))
 
 	cs := r.CookieStore().(*sessions.CookieStore)
 
